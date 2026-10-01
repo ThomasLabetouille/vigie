@@ -5,7 +5,7 @@ members = ["crates/vigie-core", "crates/vigie-mavlink", "crates/vigied"]
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.85"
+rust-version = "1.88"  # let-chains (if let … && …)
 license = "MIT"
 authors = ["Thomas"]
 repository = "https://github.com/CHANGE-ME/vigie"

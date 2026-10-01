@@ -115,11 +115,55 @@ impl FailsafeMonitor {
     }
 
     /// Évalue les entrées et renvoie l'action à exécuter (voir les règles en tête de module).
-    ///
-    /// À implémenter. Les tests de `tests/failsafe.rs` décrivent le comportement attendu.
     #[must_use]
     pub fn update(&mut self, inputs: &Inputs) -> Action {
-        let _ = inputs;
-        todo!("implémenter la machine à états décrite en tête de module")
+        // Règle 1 : au sol et désarmé, on oublie tout. C'est le seul retour arrière possible.
+        if !inputs.armed {
+            self.state = State::Nominal;
+            return Action::None;
+        }
+
+        let Some((target, action)) = self.evaluate(inputs) else {
+            return Action::None;
+        };
+
+        // Escalade seulement, et une seule commande par transition : si l'état demandé
+        // n'est pas plus grave que l'état courant, on ne fait rien.
+        if target > self.state {
+            self.state = target;
+            action
+        } else {
+            Action::None
+        }
+    }
+
+    /// Règles 2 à 6, par ordre de priorité. Renvoie l'état visé par la situation
+    /// courante, sans tenir compte de l'état actuel du moniteur.
+    fn evaluate(&self, i: &Inputs) -> Option<(State, Action)> {
+        let cfg = &self.cfg;
+        let battery_at_or_below = |pct: u8| i.battery_pct.is_some_and(|b| b <= pct);
+
+        // Sans aucun heartbeat depuis l'armement, le délai court depuis l'armement.
+        let link_ref_ms = i.last_link_ms.unwrap_or(i.armed_since_ms);
+        let link_lost = i.now_ms.saturating_sub(link_ref_ms) > cfg.link_timeout_ms;
+
+        if battery_at_or_below(cfg.battery_critical_pct) {
+            return Some((State::Landing, Action::Land(Reason::BatteryCritical)));
+        }
+        if matches!(i.fence, FenceStatus::Breach(_)) {
+            return Some((State::Rtl, Action::ReturnToLaunch(Reason::FenceBreach)));
+        }
+        if link_lost {
+            return Some((State::Rtl, Action::ReturnToLaunch(Reason::LinkLost)));
+        }
+        if battery_at_or_below(cfg.battery_low_pct) {
+            return Some((State::Warning, Action::Warn(Reason::BatteryLow)));
+        }
+        if let FenceStatus::Inside { margin_m } = i.fence
+            && margin_m < cfg.fence_warn_margin_m
+        {
+            return Some((State::Warning, Action::Warn(Reason::FenceProximity)));
+        }
+        None
     }
 }
