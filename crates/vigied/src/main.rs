@@ -27,6 +27,8 @@ struct Cli {
 }
 
 const TICK: Duration = Duration::from_millis(100);
+/// Un résumé d'état toutes les 50 itérations (5 s).
+const STATUS_EVERY: u32 = 50;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -84,8 +86,10 @@ async fn supervise(
 ) {
     let mut tick = tokio::time::interval(TICK);
     tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+    let mut n: u32 = 0;
     loop {
         tick.tick().await;
+        n = n.wrapping_add(1);
         let now_ms = u64::try_from(epoch.elapsed().as_millis()).unwrap_or(u64::MAX);
         let s = state_rx.borrow().clone();
 
@@ -104,6 +108,10 @@ async fn supervise(
             battery_pct: s.battery_pct,
             fence: fence_status,
         };
+
+        if n.is_multiple_of(STATUS_EVERY) {
+            log_status(&s, &inputs, &monitor);
+        }
 
         let cmd = match monitor.update(&inputs) {
             Action::None => None,
@@ -128,4 +136,34 @@ async fn supervise(
             return;
         }
     }
+}
+
+fn log_status(s: &VehicleState, inputs: &Inputs, monitor: &FailsafeMonitor) {
+    if s.system_id.is_none() {
+        tracing::warn!("aucun message de l'autopilote pour l'instant");
+        return;
+    }
+    let margin_m = match inputs.fence {
+        FenceStatus::Inside { margin_m } if margin_m.is_finite() => format!("{margin_m:.0} m"),
+        FenceStatus::Inside { .. } => "pas de position".to_owned(),
+        FenceStatus::Breach(b) => format!("HORS ZONE ({b:?})"),
+    };
+    let link = s.last_gcs_ms.map_or_else(
+        || "jamais vu".to_owned(),
+        |t| {
+            format!(
+                "il y a {:.1} s",
+                inputs.now_ms.saturating_sub(t) as f32 / 1000.0
+            )
+        },
+    );
+    tracing::info!(
+        armed = s.armed,
+        alt_m = format!("{:.1}", s.rel_alt_m),
+        batterie = s.battery_pct.map_or_else(|| "?".to_owned(), |b| format!("{b} %")),
+        marge_zone = margin_m,
+        lien_sol = link,
+        etat = ?monitor.state(),
+        "état"
+    );
 }

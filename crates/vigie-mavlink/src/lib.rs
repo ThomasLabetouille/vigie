@@ -151,7 +151,22 @@ pub async fn run(
         tokio::select! {
             res = conn.recv() => {
                 let (header, msg) = res?;
-                state_tx.send_modify(|s| apply(s, &header, &msg, now_ms()));
+                let mut armed_change = None;
+                state_tx.send_modify(|s| {
+                    let (known, was_armed) = (s.system_id.is_some(), s.armed);
+                    apply(s, &header, &msg, now_ms());
+                    if !known && let Some(sys) = s.system_id {
+                        tracing::info!(system_id = sys, "autopilote détecté");
+                    }
+                    if s.armed != was_armed {
+                        armed_change = Some(s.armed);
+                    }
+                });
+                match armed_change {
+                    Some(true) => tracing::info!("drone armé"),
+                    Some(false) => tracing::info!("drone désarmé"),
+                    None => {}
+                }
             }
             _ = hb_tick.tick() => {
                 let sys = state_tx.borrow().system_id;

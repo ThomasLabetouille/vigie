@@ -90,7 +90,18 @@ cd ~/vigie
 RUST_LOG=info,vigied=debug cargo run -p vigied -- --config config/vigie.toml
 ```
 
-`vigied` écoute le flux « onboard » de PX4 sur UDP 14540.
+`vigied` écoute le flux « onboard » de PX4 sur UDP 14540. Au démarrage il doit
+afficher `autopilote détecté`, puis un résumé d'état toutes les 5 s.
+
+Sans QGroundControl, PX4 v1.17 refuse d'armer (`Preflight Fail: No connection to
+the GCS`). Pour voler sans station sol, dans la console `pxh>` :
+
+```
+param set NAV_DLL_ACT 0
+```
+
+Le paramètre est conservé entre deux lancements du SITL. Vigie, lui, déclenche
+toujours un RTL après 5 s sans heartbeat de station sol : c'est le comportement voulu.
 
 ## 6. Yocto (semaine 3)
 
