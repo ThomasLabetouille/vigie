@@ -1,0 +1,17 @@
+[package]
+name = "vigie-core"
+description = "Logique de sûreté sans allocation : géométrie locale, geofence, failsafes"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+heapless.workspace = true
+libm.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
+
+[lints]
+workspace = true

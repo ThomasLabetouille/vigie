@@ -1,0 +1,21 @@
+# Configuration de vigied pour PX4 SITL (home par défaut : Zurich, 47.397742 N, 8.545594 E)
+
+[mavlink]
+# PX4 SITL envoie son flux « onboard » vers le port UDP 14540.
+address = "udpin:0.0.0.0:14540"
+
+[failsafe]
+battery_low_pct = 30
+battery_critical_pct = 15
+link_timeout_ms = 5000
+fence_warn_margin_m = 20.0
+
+[geofence]
+ceiling_m = 120.0
+# Carré d'environ 300 m de côté centré sur le home SITL. [latitude, longitude]
+vertices = [
+  [47.396393, 8.543602],
+  [47.396393, 8.547586],
+  [47.399091, 8.547586],
+  [47.399091, 8.543602],
+]

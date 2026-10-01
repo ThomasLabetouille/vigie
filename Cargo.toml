@@ -1,0 +1,51 @@
+[workspace]
+resolver = "3"
+members = ["crates/vigie-core", "crates/vigie-mavlink", "crates/vigied"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+license = "MIT"
+authors = ["Thomas"]
+repository = "https://github.com/CHANGE-ME/vigie"
+
+[workspace.dependencies]
+vigie-core = { path = "crates/vigie-core" }
+vigie-mavlink = { path = "crates/vigie-mavlink" }
+
+anyhow = "1"
+thiserror = "2"
+heapless = "0.8"
+libm = "0.2"
+# mavlink-core 0.18 utilise futures::lock sans activer la feature "std" de futures
+# quand on désactive les features par défaut de mavlink : on l'active nous-mêmes.
+futures = { version = "0.3", default-features = false, features = ["std"] }
+mavlink = { version = "0.18", default-features = false, features = ["std", "tokio", "transport-udp", "transport-tcp", "dialect-common"] }
+serde = { version = "1", features = ["derive"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "sync", "time", "signal"] }
+toml = "0.9"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+clap = { version = "4", features = ["derive"] }
+proptest = "1"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_debug_implementations = "warn"
+
+[workspace.lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+unwrap_used = "warn"
+module_name_repetitions = "allow"
+cast_precision_loss = "allow"
+cast_possible_truncation = "allow"
+missing_errors_doc = "allow"
+# Les commentaires sont en français : MAVLink, PX4, QGroundControl… n'ont pas à être en backticks.
+doc_markdown = "allow"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+panic = "abort"
+strip = "symbols"
