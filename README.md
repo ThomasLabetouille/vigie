@@ -10,6 +10,8 @@ une règle est franchie. La cible finale est une image Linux embarquée construi
 Tout tourne en simulation : PX4 SITL et Gazebo pour le véhicule, QGroundControl comme station
 sol, QEMU aarch64 pour la cible (à venir).
 
+Développé avec l'assistance de Claude (Anthropic).
+
 ## Vols en simulation
 
 Le drone décolle depuis QGroundControl puis il est envoyé vers un point situé hors de la zone
