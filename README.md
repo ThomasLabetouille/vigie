@@ -10,6 +10,8 @@ une règle est franchie. La cible finale est une image Linux embarquée construi
 Tout tourne en simulation : PX4 SITL et Gazebo pour le véhicule, QGroundControl comme station
 sol, QEMU aarch64 pour la cible (à venir).
 
+Développé avec l'assistance de Claude (Anthropic).
+
 ## Vols en simulation
 
 Le drone décolle depuis QGroundControl puis il est envoyé vers un point situé hors de la zone
@@ -55,8 +57,10 @@ proche.
 crates/
   vigie-core/      no_std, sans allocation : projection locale, geofence, machine à états des failsafes
   vigie-mavlink/   pont MAVLink async (tokio) : décodage pur + boucle réseau
+  vigie-vision/    détection d'objets (YOLOX-Nano, inférence tract en Rust pur)
   vigied/          le démon : configuration TOML, superviseur à 10 Hz
 config/vigie.toml  configuration pour PX4 SITL
+models/            modèle ONNX de détection
 docs/adr/          décisions d'architecture
 docs/              installation, planning
 scripts/           lancement du SITL, installation Ubuntu et Windows/WSL2
@@ -115,11 +119,31 @@ QGroundControl se connecte tout seul au SITL. Sans lui, PX4 v1.17 refuse d'armer
 console `pxh>`, `param set NAV_DLL_ACT 0` lève ce contrôle, et Vigie déclenche alors un RTL pour
 perte du lien sol 5 s après l'armement.
 
+## Détection d'objets
+
+`vigie-vision` exécute YOLOX-Nano (Apache-2.0) avec `tract`, sans bibliothèque C++ à embarquer :
+
+```bash
+cargo run --release -p vigie-vision --features cli --bin vigie-detect -- \
+  models/yolox_nano.onnx crates/vigie-vision/tests/data/dog.jpg
+```
+```
+dog          0.86  [133, 207, 326, 543]
+bicycle      0.80  [56, 137, 572, 423]
+car          0.80  [466, 78, 693, 171]
+truck        0.31  [464, 78, 683, 173]
+prétraitement 3.5 ms · inférence 45.6 ms · post-traitement 0.3 ms
+```
+
+Un test d'intégration compare ces boîtes à celles de l'implémentation de référence de Megvii
+(onnxruntime). Le branchement sur la caméra du drone simulé est en cours. Choix du modèle et du
+moteur : [ADR 0002](docs/adr/0002-vision.md).
+
 ## Qualité
 
 La CI (GitHub Actions) passe `rustfmt`, `clippy` en mode pedantic avec les avertissements
 bloquants, les tests, la compilation `no_std` pour Cortex-M, une vérification avec la version
-minimale de Rust (1.88) et `cargo-deny` (licences, avis RustSec, provenance des crates).
+minimale de Rust (1.91) et `cargo-deny` (licences, avis RustSec, provenance des crates).
 
 Deux avis RustSec sur `quick-xml` sont ignorés dans `deny.toml`, avec la raison : la crate n'est
 utilisée qu'à la compilation par `mavlink-bindgen`, pour lire les XML de dialecte MAVLink livrés
@@ -127,12 +151,13 @@ avec la crate, jamais sur une entrée externe.
 
 ## État
 
-Semaine 1 sur 4 terminée : supervision MAVLink, geofence et failsafes validés en vol simulé.
+Semaine 1 terminée : supervision MAVLink, geofence et failsafes validés en vol simulé. Semaine 2
+en cours : la détection fonctionne sur image fixe, reste le flux caméra de Gazebo.
 Détail dans [docs/planning.md](docs/planning.md).
 
 À venir :
 
-- détection d'objets embarquée (ONNX) sur le flux caméra de Gazebo
+- détection branchée sur le flux caméra de Gazebo, et une règle de sûreté qui s'en sert
 - couche Yocto `meta-vigie` : image `qemuarm64`, rootfs en lecture seule, services systemd
   durcis, SBOM SPDX et rapport CVE
 - liaison sol chiffrée (protocole Noise) avec une station sol minimale

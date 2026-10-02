@@ -1,0 +1,32 @@
+[package]
+name = "vigie-vision"
+description = "Détection d'objets embarquée (YOLOX-Nano, inférence tract) pour Vigie"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[features]
+default = ["tract"]
+# Inférence ONNX en Rust pur. Sans cette feature, seuls le prétraitement et le
+# décodage (fonctions pures) sont compilés.
+tract = ["dep:tract-onnx"]
+# Outil en ligne de commande `vigie-detect` (lit une image JPEG/PNG).
+cli = ["tract", "dep:image"]
+
+[dependencies]
+thiserror.workspace = true
+tract-onnx = { workspace = true, optional = true }
+image = { workspace = true, optional = true }
+
+[dev-dependencies]
+image.workspace = true
+proptest.workspace = true
+
+[[bin]]
+name = "vigie-detect"
+required-features = ["cli"]
+
+[lints]
+workspace = true
