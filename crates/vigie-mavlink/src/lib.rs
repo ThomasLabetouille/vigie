@@ -10,8 +10,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use mavlink::dialects::common::{
-    COMMAND_LONG_DATA, HEARTBEAT_DATA, MavAutopilot, MavCmd, MavComponent, MavLandedState,
-    MavMessage, MavModeFlag, MavState, MavType,
+    COMMAND_ACK_DATA, COMMAND_LONG_DATA, HEARTBEAT_DATA, MavAutopilot, MavCmd, MavComponent,
+    MavLandedState, MavMessage, MavModeFlag, MavResult, MavState, MavType,
 };
 use mavlink::{AsyncMavConnection, MavHeader};
 use tokio::sync::{mpsc, watch};
@@ -38,6 +38,47 @@ pub struct VehicleState {
     pub last_autopilot_ms: Option<u64>,
     /// Dernier heartbeat d'une station sol (QGroundControl ou la station Vigie).
     pub last_gcs_ms: Option<u64>,
+    /// Mode de vol annoncé par PX4 dans son heartbeat.
+    pub flight_mode: Option<FlightMode>,
+}
+
+/// Mode de vol PX4, décodé depuis le champ `custom_mode` du heartbeat
+/// (octet 2 : mode principal, octet 3 : sous-mode des modes AUTO).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FlightMode {
+    Manual,
+    Altitude,
+    Position,
+    Stabilized,
+    Acro,
+    Offboard,
+    Takeoff,
+    Hold,
+    Mission,
+    ReturnToLaunch,
+    Land,
+    Other { main: u8, sub: u8 },
+}
+
+impl FlightMode {
+    #[must_use]
+    pub fn from_px4(custom_mode: u32) -> Self {
+        let [_, _, main, sub] = custom_mode.to_le_bytes();
+        match (main, sub) {
+            (1, _) => Self::Manual,
+            (2, _) => Self::Altitude,
+            (3, _) => Self::Position,
+            (5, _) => Self::Acro,
+            (6, _) => Self::Offboard,
+            (7, _) => Self::Stabilized,
+            (4, 2) => Self::Takeoff,
+            (4, 3) => Self::Hold,
+            (4, 4) => Self::Mission,
+            (4, 5) => Self::ReturnToLaunch,
+            (4, 6 | 9) => Self::Land,
+            (main, sub) => Self::Other { main, sub },
+        }
+    }
 }
 
 /// Commandes que Vigie peut envoyer à l'autopilote.
@@ -75,6 +116,13 @@ pub fn apply(state: &mut VehicleState, header: &MavHeader, msg: &MavMessage, now
                 state.armed_since_ms = now_ms;
             }
             state.armed = armed;
+            if hb.autopilot == MavAutopilot::MAV_AUTOPILOT_PX4
+                && hb
+                    .base_mode
+                    .contains(MavModeFlag::MAV_MODE_FLAG_CUSTOM_MODE_ENABLED)
+            {
+                state.flight_mode = Some(FlightMode::from_px4(hb.custom_mode));
+            }
         }
         MavMessage::GLOBAL_POSITION_INT(p) => {
             state.position = Some(GeoPoint::from_e7(p.lat, p.lon));
@@ -151,9 +199,13 @@ pub async fn run(
         tokio::select! {
             res = conn.recv() => {
                 let (header, msg) = res?;
+                if let MavMessage::COMMAND_ACK(ack) = &msg {
+                    log_ack(ack);
+                }
                 let mut armed_change = None;
+                let mut mode_change = None;
                 state_tx.send_modify(|s| {
-                    let (known, was_armed) = (s.system_id.is_some(), s.armed);
+                    let (known, was_armed, old_mode) = (s.system_id.is_some(), s.armed, s.flight_mode);
                     apply(s, &header, &msg, now_ms());
                     if !known && let Some(sys) = s.system_id {
                         tracing::info!(system_id = sys, "autopilote détecté");
@@ -161,7 +213,13 @@ pub async fn run(
                     if s.armed != was_armed {
                         armed_change = Some(s.armed);
                     }
+                    if s.flight_mode != old_mode {
+                        mode_change = s.flight_mode;
+                    }
                 });
+                if let Some(mode) = mode_change {
+                    tracing::info!(?mode, "mode de vol PX4");
+                }
                 match armed_change {
                     Some(true) => tracing::info!("drone armé"),
                     Some(false) => tracing::info!("drone désarmé"),
@@ -186,6 +244,21 @@ pub async fn run(
                 send(&conn, sys, &mut seq, &command_message(cmd, sys)).await;
             }
         }
+    }
+}
+
+fn log_ack(ack: &COMMAND_ACK_DATA) {
+    let watched = matches!(
+        ack.command,
+        MavCmd::MAV_CMD_NAV_RETURN_TO_LAUNCH | MavCmd::MAV_CMD_NAV_LAND
+    );
+    if !watched {
+        return;
+    }
+    if ack.result == MavResult::MAV_RESULT_ACCEPTED {
+        tracing::info!(command = ?ack.command, "commande acceptée par PX4");
+    } else {
+        tracing::error!(command = ?ack.command, result = ?ack.result, "commande refusée par PX4");
     }
 }
 
@@ -309,6 +382,30 @@ mod tests {
             apply(&mut s, &AP, &msg, 0);
             assert_eq!(s.in_air, expected, "{ls:?}");
         }
+    }
+
+    #[test]
+    fn decodes_px4_flight_modes() {
+        let mode = |main: u32, sub: u32| FlightMode::from_px4((main << 16) | (sub << 24));
+        assert_eq!(mode(4, 5), FlightMode::ReturnToLaunch);
+        assert_eq!(mode(4, 3), FlightMode::Hold);
+        assert_eq!(mode(4, 6), FlightMode::Land);
+        assert_eq!(mode(3, 0), FlightMode::Position);
+        assert_eq!(mode(4, 8), FlightMode::Other { main: 4, sub: 8 });
+    }
+
+    #[test]
+    fn heartbeat_updates_flight_mode() {
+        let mut s = VehicleState::default();
+        let hb = MavMessage::HEARTBEAT(HEARTBEAT_DATA {
+            mavtype: MavType::MAV_TYPE_QUADROTOR,
+            autopilot: MavAutopilot::MAV_AUTOPILOT_PX4,
+            base_mode: MavModeFlag::MAV_MODE_FLAG_CUSTOM_MODE_ENABLED,
+            custom_mode: (4 << 16) | (5 << 24),
+            ..HEARTBEAT_DATA::default()
+        });
+        apply(&mut s, &AP, &hb, 0);
+        assert_eq!(s.flight_mode, Some(FlightMode::ReturnToLaunch));
     }
 
     #[test]
