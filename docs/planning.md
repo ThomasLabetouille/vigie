@@ -20,9 +20,10 @@ Légende : **[T]** Thomas, **[C]** Claude (squelette, revue), **[T+C]** à deux.
 
 ## Semaine 2 — Vision embarquée
 
-- [ ] [C] Crate `vigie-vision` : trait `Detector`, récupération des images caméra Gazebo
-      (topic gz-transport) — squelette et choix runtime (`ort` vs `tract`) dans un ADR 0002
-- [ ] [T] Pipeline : prétraitement, inférence YOLO nano ONNX, NMS, sortie `Detection`
+- [x] [C] ADR 0002 : YOLOX-Nano (Apache-2.0) plutôt que YOLOv8 (AGPL), `tract` plutôt qu'`ort`
+- [x] [C] Crate `vigie-vision` : letterbox, décodage YOLOX, NMS, détecteur `tract`,
+      test d'intégration contre la référence onnxruntime, outil `vigie-detect`
+- [ ] [C] Source d'images : flux RTP/H.264 du plugin GstCameraSystem (UDP 5600) via GStreamer
 - [ ] [T] Règle de décision liée à la vision (ex. personne détectée sous le drone → refus
       d'atterrir, ou cible suivie perdue → maintien de position)
 - [ ] [T+C] Mesure de latence par étape (`tracing` spans), budget < 100 ms par image en CPU

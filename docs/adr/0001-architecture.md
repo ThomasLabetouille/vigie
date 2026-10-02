@@ -70,7 +70,7 @@ transition, donnée absente ≠ donnée saine) sont documentés en tête de
 | Projection géo | équirectangulaire locale | ENU via ECEF : inutile sous 10 km, voir `geo.rs`. |
 | Polygone | `heapless::Vec<_, 32>` | `Vec` : demanderait un allocateur dans `vigie-core`. |
 | Distribution | Yocto 6.0 « Wrynose » (LTS) | Buildroot : plus simple, mais Yocto est ce qu'on trouve en production dans le secteur. |
-| Édition Rust | 2024, MSRV 1.88 (let-chains) | La toolchain Rust de Wrynose doit être ≥ 1.88 ; à confirmer en semaine 3 (`meta/recipes-devtools/rust`). |
+| Édition Rust | 2024, MSRV 1.91 (imposée par `tract`, voir ADR 0002) | Yocto 6.0 « Wrynose » fournit Rust 1.94.1 (`meta/recipes-devtools/rust/rust_1.94.1.bb`), vérifié. |
 
 ## Conséquences
 

@@ -1,11 +1,11 @@
 [workspace]
 resolver = "3"
-members = ["crates/vigie-core", "crates/vigie-mavlink", "crates/vigied"]
+members = ["crates/vigie-core", "crates/vigie-mavlink", "crates/vigie-vision", "crates/vigied"]
 
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.88"  # let-chains (if let … && …)
+rust-version = "1.91"  # imposé par tract 0.23 ; Yocto wrynose fournit Rust 1.94.1
 license = "MIT"
 authors = ["Thomas"]
 repository = "https://github.com/ThomasLabetouille/vigie"
@@ -14,6 +14,7 @@ publish = false
 [workspace.dependencies]
 vigie-core = { path = "crates/vigie-core" }
 vigie-mavlink = { path = "crates/vigie-mavlink" }
+vigie-vision = { path = "crates/vigie-vision" }
 
 anyhow = "1"
 thiserror = "2"
@@ -30,6 +31,8 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 clap = { version = "4", features = ["derive"] }
 proptest = "1"
+tract-onnx = "0.23"
+image = { version = "0.25", default-features = false, features = ["jpeg", "png"] }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
@@ -44,6 +47,11 @@ cast_possible_truncation = "allow"
 missing_errors_doc = "allow"
 # Les commentaires sont en français : MAVLink, PX4, QGroundControl… n'ont pas à être en backticks.
 doc_markdown = "allow"
+
+# tract est très lent sans optimisation : les dépendances sont compilées en -O2
+# même en debug, pour que les tests d'inférence restent rapides.
+[profile.dev.package."*"]
+opt-level = 2
 
 [profile.release]
 lto = "thin"
