@@ -159,6 +159,7 @@ fn log_status(s: &VehicleState, inputs: &Inputs, monitor: &FailsafeMonitor) {
     );
     tracing::info!(
         armed = s.armed,
+        mode = ?s.flight_mode,
         alt_m = format!("{:.1}", s.rel_alt_m),
         batterie = s.battery_pct.map_or_else(|| "?".to_owned(), |b| format!("{b} %")),
         marge_zone = margin_m,
