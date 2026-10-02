@@ -9,10 +9,12 @@ Légende : **[T]** Thomas, **[C]** Claude (squelette, revue), **[T+C]** à deux.
 - [x] [C] `vigie-mavlink` : décodage pur + boucle async
 - [x] [C] `vigied` : config TOML, superviseur 10 Hz, `--dry-run`
 - [x] [C] Spécification exécutable des failsafes (`vigie-core/tests/failsafe.rs`)
-- [ ] [T] Environnement WSL2 + PX4 SITL (`docs/setup-wsl2.md`)
-- [ ] [T] **Implémenter `FailsafeMonitor::update`** jusqu'à ce que les 15 tests passent
-- [ ] [T] Premier vol SITL : décollage, sortie de geofence, vérifier le RTL dans les logs
-- [ ] [T+C] Vérifier que le heartbeat QGC arrive bien sur le port 14540 (forwarding PX4)
+- [x] [T] Environnement WSL2 + PX4 SITL (`docs/setup-wsl2.md`)
+- [x] [C] Implémenter `FailsafeMonitor::update` (les 15 tests passent)
+- [x] [T] Premier vol SITL : décollage, sortie de geofence, vérifier le RTL dans les logs
+- [x] [T+C] Vérifier que le heartbeat QGC arrive bien sur le port 14540 (forwarding PX4)
+- [x] Journal du mode de vol PX4 et des accusés de réception (`COMMAND_ACK`)
+- [ ] Vidéo de démo du vol de sortie de zone
 - [ ] [T+C] Test d'intégration scripté : un binaire `vigie-scenario` qui arme, décolle,
       part en ligne droite vers l'extérieur de la zone et vérifie que le mode passe en RTL
 

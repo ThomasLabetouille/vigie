@@ -9,6 +9,7 @@ rust-version = "1.88"  # let-chains (if let … && …)
 license = "MIT"
 authors = ["Thomas"]
 repository = "https://github.com/ThomasLabetouille/vigie"
+publish = false
 
 [workspace.dependencies]
 vigie-core = { path = "crates/vigie-core" }

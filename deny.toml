@@ -6,6 +6,14 @@ all-features = false
 [advisories]
 version = 2
 yanked = "deny"
+ignore = [
+  # quick-xml n'est utilisé que par mavlink-bindgen, au moment de la compilation,
+  # pour lire les fichiers XML des dialectes MAVLink livrés avec la crate.
+  # Aucun XML externe n'est jamais parsé, ni à la compilation ni à l'exécution.
+  # À retirer quand mavlink-bindgen passera à quick-xml >= 0.40.
+  { id = "RUSTSEC-2026-0194", reason = "build-dependency de mavlink-bindgen, entrée XML de confiance uniquement" },
+  { id = "RUSTSEC-2026-0195", reason = "build-dependency de mavlink-bindgen, entrée XML de confiance uniquement" },
+]
 
 [licenses]
 version = 2
@@ -20,10 +28,18 @@ allow = [
   "Zlib",
 ]
 confidence-threshold = 0.9
+exceptions = [
+  # Tiré par mavlink-core (feature tokio → tokio-serial). MPL-2.0 est un copyleft
+  # par fichier : sans contrainte tant qu'on ne modifie pas les sources de serialport.
+  { allow = ["MPL-2.0"], crate = "serialport" },
+]
 
 [bans]
 multiple-versions = "warn"
 wildcards = "deny"
+# Les dépendances internes du workspace (path = …) n'ont pas de version : autorisé
+# parce que les crates ne sont pas publiées (publish = false).
+allow-wildcard-paths = true
 
 [sources]
 unknown-registry = "deny"

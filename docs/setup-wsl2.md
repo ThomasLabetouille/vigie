@@ -5,6 +5,10 @@ Tout le travail (code, PX4, build Yocto) se fait **dans le système de fichiers
 Linux** de la distribution. Travailler depuis `/mnt/c` ou `/mnt/d` divise les
 performances d'I/O par 10 ou plus, ce qui rend un build Yocto inutilisable.
 
+Les étapes 1 à 4 sont automatisées : `scripts/windows/install-wsl.ps1` (PowerShell
+administrateur) pour WSL2, Ubuntu et `.wslconfig`, puis `scripts/setup-ubuntu.sh` dans Ubuntu
+pour Rust et PX4. Le détail manuel suit.
+
 ## 1. Installer Ubuntu 24.04 sur D:
 
 PowerShell (administrateur) :
